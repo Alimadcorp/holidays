@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Holiday Events</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+      }
+      h1,
+      h2 {
+        color: #333;
+      }
+      input,
+      button {
+        margin: 10px;
+        padding: 8px;
+      }
+      #results {
+        margin-top: 20px;
+        text-align: left;
+      }
+      .holiday {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+      }
+      .optional {
+        color: blue;
+      }
+      .public {
+        color: green;
+      }
+    </style>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const countryInput = document.getElementById("country");
+        const yearInput = document.getElementById("year");
+        const resultDiv = document.getElementById("results");
+        const apiKey = "e7ICcADPFKhXHWD7O7XuJ7a7WntpJ6Zr";
+        yearInput.value = new Date().getFullYear();
+        document
+          .getElementById("fetchBtn")
+          .addEventListener("click", function () {
+            const country = countryInput.value.toUpperCase();
+            const year = yearInput.value;
+            const today = new Date().toISOString().split("T")[0];
+            localStorage.setItem("holidayCC", country);
+            if(localStorage.getItem(`cache_calendarific&country=${country}&year=${year}`) != null){
+                onData(JSON.parse(localStorage.getItem(`cache_calendarific&country=${country}&year=${year}`)));
+                return;
+            }
+            fetch(
+              `https://calendarific.com/api/v2/holidays?api_key=${apiKey}&country=${country}&year=${year}`
+            )
+              .then((response) => response.json())
+              .then((data) => {
+                localStorage.setItem(
+                  `cache_calendarific&country=${country}&year=${year}`,
+                  JSON.stringify(data)
+                );
+                onData(data);
+              })
+              .catch(
+                (error) => (resultDiv.innerHTML = `<p>Error fetching data</p>`)
+              );
+          });
+      });
+      function onData(data) {
+        let holidays = data.response.holidays;
+        let todayHolidays = holidays.filter((h) => h.date.iso === today);
+
+        resultDiv.innerHTML = `<h2>Today's Holidays</h2>`;
+        if (todayHolidays.length === 0) {
+          resultDiv.innerHTML += "<p>No holidays today.</p>";
+        } else {
+          todayHolidays.forEach((holiday) => {
+            let typeClass = holiday.primary_type.includes("Optional")
+              ? "optional"
+              : "public";
+            let states =
+              holiday.locations !== "All" ? ` (States: ${holiday.states})` : "";
+            resultDiv.innerHTML += `<p class="${typeClass}"><a href="${holiday.canonical_url}" target="_blank"><strong>${holiday.name}</strong></a>: ${holiday.description}${states}</p>`;
+          });
+        }
+
+        resultDiv.innerHTML += `<h2>All Holidays</h2>`;
+        holidays.forEach((holiday) => {
+          let typeClass = holiday.primary_type.includes("Optional")
+            ? "optional"
+            : "public";
+          let states =
+            holiday.locations !== "All" ? ` (States: ${holiday.states})` : "";
+          resultDiv.innerHTML += `<p class="${typeClass}"><a href="${holiday.canonical_url}" target="_blank"><strong>${holiday.name}</strong></a> (${holiday.date.iso}): ${holiday.description}${states} - ${holiday.primary_type}</p>`;
+        });
+      }
+      setTimeout(() => {
+        if (localStorage.getItem("holidayCC") != null) {
+          document.getElementById("country").value =
+            localStorage.getItem("holidayCC");
+          return;
+        }
+        fetch("https://api.country.is")
+          .then((response) => response.json())
+          .then((data) => {
+            countryInput.value = data.country;
+            localStorage.setItem("holidayCC", data.country);
+          })
+          .catch(() => console.warn("Could not fetch country code"));
+      }, 200);
+    </script>
+  </head>
+  <body>
+    <h1>Search for Holiday Events</h1>
+    <label for="country">Enter Country Code (e.g., PK): </label>
+    <input type="text" id="country" maxlength="2" />
+    <label for="year">Enter Year: </label>
+    <input type="number" id="year" />
+    <button id="fetchBtn">Get Holidays</button>
+    <div id="results"></div>
+  </body>
+</html>
